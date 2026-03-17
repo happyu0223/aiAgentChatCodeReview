@@ -159,19 +159,43 @@ const submitReview = async () => {
     
     reviewId.value = data.reviewId
     
-    // 始终保存原始响应
     if (data.result) {
+      let parsedResult = null
+      let rawText = ''
+      
       if (typeof data.result === 'string') {
-        rawResult.value = data.result
+        rawText = data.result
         try {
-          reviewResult.value = JSON.parse(data.result)
-        } catch (e) {
-          reviewResult.value = {}
-        }
+          parsedResult = JSON.parse(data.result)
+        } catch (e) {}
       } else {
-        rawResult.value = JSON.stringify(data.result, null, 2)
-        reviewResult.value = data.result
+        rawText = JSON.stringify(data.result, null, 2)
+        parsedResult = data.result
+        
+        if (parsedResult.rawResponse) {
+          try {
+            const rawParsed = JSON.parse(parsedResult.rawResponse.replace(/```json|```/g, '').trim())
+            if (rawParsed.summary && rawParsed.summary.totalIssues > 0) {
+              parsedResult = rawParsed
+              rawText = parsedResult.rawResponse
+            }
+          } catch (e) {
+            const match = parsedResult.rawResponse.match(/\{[\s\S]*\}/)
+            if (match) {
+              try {
+                const jsonMatch = JSON.parse(match[0])
+                if (jsonMatch.summary && jsonMatch.summary.totalIssues > 0) {
+                  parsedResult = jsonMatch
+                  rawText = match[0]
+                }
+              } catch (e2) {}
+            }
+          }
+        }
       }
+      
+      rawResult.value = rawText
+      reviewResult.value = parsedResult || {}
     }
     ElMessage.success('审查完成')
   } catch (error) {
